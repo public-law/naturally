@@ -1,8 +1,13 @@
+# frozen_string_literal: true
+
 require 'naturally/segment'
 
 # A module which performs natural sorting on a variety of number
 # formats. (See the specs for examples.)
 module Naturally
+  WORD = /\p{Word}+/
+  private_constant :WORD
+
   # Perform a natural sort. Supports two syntaxes:
   #
   # 1. sort(objects)  # Simple arrays
@@ -13,7 +18,7 @@ module Naturally
   # @return [Array<String>] the numbers sorted naturally.
   def self.sort(an_array, by:nil)
     if by.nil?
-      an_array.sort_by { |x| normalize(x) }
+      an_array.sort_by { |x| sort_key(x) }
     else
       self.sort_by(an_array, by)
     end
@@ -30,7 +35,7 @@ module Naturally
   # @return [Array<Object>] the objects in natural sort order.
   def self.sort_by(an_array, an_attribute=nil, &block)
     return sort_by_block(an_array, &block) if block_given?
-    an_array.sort_by { |obj| normalize(obj.send(an_attribute)) }
+    an_array.sort_by { |obj| sort_key(obj.public_send(an_attribute)) }
   end
 
   # Convert the given number to an array of {Segment}s.
@@ -45,8 +50,7 @@ module Naturally
   # @return [Array<Segment>] an array of Segments which
   #         can be sorted naturally via a standard #sort.
   def self.normalize(complex_number)
-    tokens = complex_number.to_s.gsub(/\_/,'').scan(/\p{Word}+/)
-    tokens.map { |t| Segment.new(t) }
+    tokens(complex_number).map { |t| Segment.new(t) }
   end
 
   # Natural sort for filenames, treating underscores and dots as separators.
@@ -68,6 +72,17 @@ module Naturally
   #        sort key for the yielded object
   # @return [Array<Object>] the objects in natural sort order.
   def self.sort_by_block(an_array, &block)
-    an_array.sort_by { |obj| normalize(yield(obj)) }
+    an_array.sort_by { |obj| sort_key(yield(obj)) }
   end
+
+  # The same ordering as {normalize}, as plain arrays built once per
+  # element instead of {Segment}s that rebuild them on every comparison.
+  def self.sort_key(complex_number)
+    tokens(complex_number).map! { |t| Segment.to_array(t) }
+  end
+
+  def self.tokens(complex_number)
+    complex_number.to_s.delete('_').scan(WORD)
+  end
+  private_class_method :sort_key, :tokens
 end
