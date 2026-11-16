@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Naturally
   # An entity which can be compared to other like elements for
   # sorting. It's an object representing
@@ -6,8 +8,27 @@ module Naturally
   class Segment
     include Comparable
 
+    DIGITS_THEN_ALPHA = /^(\p{Digit}+)(\p{Alpha}+)$/
+    ALPHA_THEN_DIGITS = /^(\p{Alpha}+)(\p{Digit}+)$/
+    DIGITS            = /^\p{Digit}+$/
+
+    # @return [Array] the sort key for a single token, computed without
+    #                 allocating a {Segment}.
+    def self.to_array(token)
+      if (m = DIGITS_THEN_ALPHA.match(token))
+        [:int, m[1].to_i, m[2]]
+      elsif (m = ALPHA_THEN_DIGITS.match(token))
+        [:str, m[1], m[2].to_i]
+      elsif DIGITS.match?(token)
+        [:int, token.to_i]
+      else
+        [:str, token]
+      end
+    end
+
     def initialize(v)
       @val = v
+      @array = Segment.to_array(v)
     end
 
     def <=>(other)
@@ -29,16 +50,7 @@ module Naturally
     # @example Section 633a of the U.S. Age Discrimination in Employment Act
     #   Segment.new('633a').to_array #=> [:int, 633, "a"]
     def to_array
-      # TODO: Refactor, probably via polymorphism
-      if @val =~ /^(\p{Digit}+)(\p{Alpha}+)$/
-        [:int, $1.to_i, $2]
-      elsif @val =~ /^(\p{Alpha}+)(\p{Digit}+)$/
-        [:str, $1, $2.to_i]
-      elsif @val =~ /^\p{Digit}+$/
-        [:int, @val.to_i]
-      else
-        [:str, @val]
-      end
+      @array
     end
   end
 end
